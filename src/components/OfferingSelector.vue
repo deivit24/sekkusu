@@ -2,6 +2,7 @@
   <div class="terminal-style">
     <v-select
       class="mb-4"
+      hide-details
       item-title="name"
       item-value="id"
       :items="props.offerings"
@@ -22,9 +23,6 @@
 
   defineEmits(['update:modelValue'])
 
-  onMounted(() => {
-    console.log('Offerings:', props.offerings)
-  })
 </script>
 
 <style scoped>

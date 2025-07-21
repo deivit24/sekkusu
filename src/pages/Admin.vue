@@ -12,45 +12,90 @@
         class="mt-4"
         :offerings="offerings"
       />
-
+      <v-tabs v-if="selectedOffering" v-model="tab" class="mt-4">
+        <v-tab value="share">Share</v-tab>
+        <v-tab value="answers">Answers</v-tab>
+      </v-tabs>
       <!-- Share Link -->
-      <div v-if="selectedOffering" class="mt-6">
-        <h3 class="text-subtitle-1">Share this link with your client:</h3>
-        <v-sheet class="pa-3 rounded mt-2 d-flex justify-space-between align-center" color="#1e1e1e">
-          <code class="text-mono">{{ clientLink }}</code>
-          <v-btn icon @click="copyText(clientLink)">
-            <v-icon size="small">mdi-content-copy</v-icon>
-          </v-btn>
-        </v-sheet>
-      </div>
+      <v-window v-model="tab" class="mt-4">
+        <!-- Share Tab Content -->
+        <v-window-item value="share">
+          <div v-if="selectedOffering">
+            <h3 class="text-subtitle-1">Share this link with your client:</h3>
+            <v-sheet class="pa-3 rounded mt-2 d-flex justify-space-between align-center" color="#1e1e1e">
+              <code class="text-mono">{{ clientLink }}</code>
+              <v-btn icon @click="copyText(clientLink)">
+                <v-icon size="small">mdi-content-copy</v-icon>
+              </v-btn>
+            </v-sheet>
 
-      <!-- Delete Offering -->
-      <v-btn
-        v-if="selectedOffering"
-        class="mt-4"
-        color="red"
-        @click="removeOffering"
-      >
-        Delete Offering
-      </v-btn>
+            <!-- Add Service -->
+            <ServiceForm
+              class="mt-6"
+              :offering="selectedOffering"
+              @add="addService"
+            />
 
-      <!-- Add Service -->
-      <ServiceForm
-        v-if="selectedOffering"
-        class="mt-6"
-        :offering="selectedOffering"
-        @add="addService"
-      />
+            <!-- Service List -->
+            <ServiceList
+              class="mt-4"
+              :offering="selectedOffering"
+              :services="services"
+              @remove="remove"
+              @toggle="toggle"
+            />
+          </div>
+        </v-window-item>
 
-      <!-- Service List -->
-      <ServiceList
-        v-if="selectedOffering"
-        class="mt-4"
-        :offering="selectedOffering"
-        :services="services"
-        @remove="remove"
-        @toggle="toggle"
-      />
+        <!-- Answers Tab Content -->
+        <v-window-item value="answers">
+          <div class="mt-4">
+            <h3 class="text-subtitle-1 mb-4">Answers</h3>
+
+            <v-card
+              v-for="(entry, index) in answers"
+              :key="index"
+              class="mb-4 pa-4"
+              color="#1e1e1e"
+              elevation="2"
+            >
+              <div class="text-h6 d-flex justify-space-between align-center">
+                <span>{{ entry.name }}</span>
+              </div>
+
+              <div class="text-caption mb-3 text-grey-lighten-1">
+                {{ new Date(entry.created_at).toLocaleString() }}
+              </div>
+
+              <v-list class="bg-transparent" density="compact">
+                <v-list-item
+                  v-for="(ans, i) in entry.answers"
+                  :key="ans.id"
+                  class="bg-grey-darken-4 rounded mb-2"
+                >
+                  <v-list-item-content>
+                    <v-list-item-title class="text-white font-weight-bold d-flex justify-space-between">
+                      <span>{{ ans.service }}</span>
+                      <span class="text-success">${{ Number(ans.price).toFixed(2) }}</span>
+                    </v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+
+              <!-- 💰 Total Price -->
+              <div class="mt-4 text-right text-white font-weight-bold">
+                Total: ${{ entry.answers.reduce((sum, a) => sum + Number(a.price), 0).toFixed(2) }}
+              </div>
+              <!-- Entry-level comment -->
+              <div class="mt-1 text-grey-lighten-1">
+                {{ entry.comment || "No comment" }}
+              </div>
+            </v-card>
+
+          </div>
+
+        </v-window-item>
+      </v-window>
     </div>
   </div>
 </template>
@@ -68,17 +113,19 @@
   const store = useServiceStore()
   const auth = useAuthStore()
 
+  const tab = ref('share')
   const newOfferingName = ref('')
   const selectedOfferingId = ref(null)
   const selectedOffering = ref(null)
   const offerings = ref([])
   const services = ref([])
+  const answers = ref([])
   const copyText = async textToCopy => {
     try {
       await navigator.clipboard.writeText(textToCopy)
       console.log('Text copied to clipboard!')
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
+    } catch (error) {
+      console.error('Failed to copy text:', error)
     }
   }
 
@@ -88,6 +135,65 @@
       .select('*')
       .eq('user_id', auth.user.id)
     offerings.value = data
+  }
+
+  function groupAnswersByNameAndTime (offerings) {
+    const grouped = {}
+
+    for (const offering of offerings) {
+      const serviceName = offering.name
+      const servicePrice = offering.price
+      const serviceCommet = offering.answers[0].comment
+
+      for (const answer of offering.answers) {
+        if (!answer.selected) continue
+
+        const key = `${answer.name.trim()}_${answer.created_at}`
+
+        if (!grouped[key]) {
+          grouped[key] = {
+            name: answer.name.trim(),
+            comment: answer.comment,
+            created_at: answer.created_at,
+            answers: [],
+          }
+        }
+
+        grouped[key].answers.push({
+          id: answer.id,
+          service: serviceName,
+          price: servicePrice,
+          selected: answer.selected,
+          created_at: answer.created_at,
+        })
+      }
+    }
+
+    // Optional: sort by created_at ascending
+    return Object.values(grouped).sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at),
+    )
+  }
+
+  const getAnswers = async offeringId => {
+    let { data, error } = await supabase
+      .from('service')
+      .select(`
+        id,
+        name,
+        description,
+        price,
+        answers (
+          id,
+          name,
+          selected,
+          comment,
+          created_at
+        )
+      `)
+      .eq('offering_id', offeringId)
+
+    answers.value = groupAnswersByNameAndTime(data)
   }
 
   const getOfferingServices = async offeringId => {
@@ -113,6 +219,7 @@
       if (newVal) {
         selectedOfferingId.value = newVal
         await getOfferingServices(newVal)
+        await getAnswers(newVal)
       }
     },
     { deep: true },
@@ -146,12 +253,6 @@
     if (!error) services.value = services.value.filter(service => service.id !== id)
   }
 
-  const removeOffering = () => {
-    if (selectedOfferingId.value !== null) {
-      store.removeOffering(selectedOfferingId.value)
-      selectedOfferingId.value = null
-    }
-  }
 </script>
 
 <style scoped>
