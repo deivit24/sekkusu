@@ -22,7 +22,7 @@ router.beforeEach((to, from, next) => {
   const isProtectedRoute = to.path.startsWith('/admin')
 
   if (isProtectedRoute && !auth.user) {
-    next('/login')
+    next('/')
   } else {
     next()
   }

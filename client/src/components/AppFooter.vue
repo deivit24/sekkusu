@@ -5,7 +5,7 @@
       class="ml-2"
       variant="text"
       size="small"
-      @click="auth.user ? auth.logout() : router.push('/login')"
+      @click="auth.user ? auth.logout() : router.push('/')"
 
     >
       <v-icon class="mr-2" :icon="auth.user ? 'mdi-logout' : 'mdi-login'" />

@@ -12,7 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function logout () {
     user.value = null
-    router.push('/login')
+    router.push('/')
   }
 
   // Persist to localStorage whenever user changes
