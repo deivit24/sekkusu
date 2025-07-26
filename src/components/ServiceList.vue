@@ -13,9 +13,6 @@
           <p class="text-caption">{{ service.description }}</p>
         </div>
         <div>
-          <v-btn icon @click="$emit('toggle', service.id)">
-            <v-icon>{{ service.isActive ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
-          </v-btn>
           <v-btn icon @click="$emit('remove', service.id)">
             <v-icon>mdi-delete</v-icon>
           </v-btn>

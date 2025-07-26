@@ -2,7 +2,7 @@
   <div class="terminal-container">
     <h1 class="terminal-title">Welcome Service Creator</h1>
 
-    <v-card class="terminal-card pa-6" elevation="8" max-width="600" min-width="500">
+    <v-card class="terminal-card pa-6" elevation="8" max-width="600" min-width="400">
       <v-text-field
         v-model="email"
         dense
